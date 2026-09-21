@@ -1,0 +1,5 @@
+spoke_subscription_id = "5f9e50d6-84b3-4c63-af16-737a84d7a3bb"
+location              = "swedencentral"
+prefix                = "aks"
+environment           = "dev"
+state_container_name  = "tfstate"

@@ -1,10 +1,10 @@
-spoke_subscription_id = "00000000-0000-0000-0000-000000000000"
-location              = "uaenorth"
-prefix                = "example"
+spoke_subscription_id = "5f9e50d6-84b3-4c63-af16-737a84d7a3bb"
+location              = "swedencentral"
+prefix                = "aks"
 environment           = "dev"
 
-state_resource_group_name  = "rg-example-dev-tfstate"
-state_storage_account_name = "st<...>"
+state_resource_group_name  = "rg-aks-dev-tfstate"
+state_storage_account_name = "staksdevtfvs1mu"
 state_container_name       = "tfstate"
 
 kubernetes_version    = null
@@ -18,11 +18,10 @@ enable_private_cluster_public_fqdn = true
 # created by 05-entra-groups (wired automatically), or add extra admin groups here.
 admin_group_object_ids = []
 
-system_node_vm_size = "Standard_D4s_v5"
-user_node_vm_size   = "Standard_D4s_v5"
+system_node_vm_size = "Standard_D2ds_v5"
+user_node_vm_size   = "Standard_D2ds_v5"
 
-# Optional node-pool scaling (defaults shown):
-# system_node_min = 2
-# system_node_max = 3
-# user_node_min   = 2
-# user_node_max   = 5
+system_node_min = 1
+system_node_max = 2
+user_node_min   = 1
+user_node_max   = 3

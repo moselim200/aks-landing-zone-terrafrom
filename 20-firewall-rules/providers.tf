@@ -17,7 +17,7 @@ provider "azurerm" {
 
 # Hub / Azure landing zone subscription: the existing firewall policy and IP Group live here.
 provider "azurerm" {
-  alias           = "hub"
+  alias = "hub"
   features {}
   subscription_id = var.hub_subscription_id
 }

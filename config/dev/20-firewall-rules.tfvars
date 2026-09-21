@@ -1,11 +1,11 @@
-spoke_subscription_id = "00000000-0000-0000-0000-000000000000"
-hub_subscription_id   = "11111111-1111-1111-1111-111111111111"
-location              = "uaenorth"
-prefix                = "example"
+spoke_subscription_id = "5f9e50d6-84b3-4c63-af16-737a84d7a3bb"
+hub_subscription_id   = "285d725f-e15b-4ee1-9070-8da287e27bde"
+location              = "swedencentral"
+prefix                = "aks"
 environment           = "dev"
 
-firewall_policy_id           = "/subscriptions/1111.../resourceGroups/rg-hub-network/providers/Microsoft.Network/firewallPolicies/afwp-hub"
-ip_group_resource_group_name = "rg-hub-network"
+firewall_policy_id           = "/subscriptions/285d725f-e15b-4ee1-9070-8da287e27bde/resourceGroups/rg-hub-swedencentral/providers/Microsoft.Network/firewallPolicies/fwp-hub-swedencentral"
+ip_group_resource_group_name = "rg-hub-swedencentral"
 aks_egress_source_cidrs      = ["10.116.12.0/24"]
 
 # Optional (defaults shown):

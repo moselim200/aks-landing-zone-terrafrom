@@ -71,14 +71,65 @@ done
 
 ### Option B — GitHub Actions (`.github/workflows/deploy.yml`)
 
-1. Create an Entra app / managed identity with **federated credentials** for this repo and grant it
-   RBAC on both subscriptions (+ *Groups Administrator* in the directory).
-2. Repository **secrets**: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`.
-3. Repository **variables**: `TFSTATE_RG`, `TFSTATE_SA`, `TFSTATE_CONTAINER`.
-4. Run the **Deploy AKS Landing Zone** workflow (`workflow_dispatch`) choosing `plan` or `apply`, or
-   push to `main` (defaults to `plan`).
+The workflow uses OIDC and Azure AD backend authentication, so it does not store an Azure client
+secret. It supports:
 
-Auth uses OIDC (`ARM_USE_OIDC`) and Azure AD backend auth (`ARM_USE_AZUREAD`) — no client secrets.
+- `plan` on every relevant push to `main` or by manual dispatch.
+- `apply` by manual dispatch, using a saved plan for each stack.
+- `destroy` by manual dispatch in reverse dependency order. The operator must enter
+  `destroy-<environment>` and pass any GitHub environment approval. The state backend is preserved.
+- One run per environment at a time, preventing concurrent state operations.
+
+#### One-time Azure identity setup
+
+Create an Entra application or user-assigned identity with a federated credential whose subject is
+the GitHub environment:
+
+```text
+repo:moselim200/aks-landing-zone-terrafrom:environment:dev
+```
+
+Grant the identity:
+
+1. Sufficient RBAC in the spoke subscription to create resources and role assignments.
+2. Sufficient RBAC on the hub VNet, firewall policy, IP Group resource group, and Private DNS zones.
+3. Microsoft Graph permission to create and manage the two Entra groups in stack
+   `05-entra-groups` (for example, `Group.ReadWrite.All` with tenant admin consent).
+4. `Storage Blob Data Contributor` on the Terraform state storage account after bootstrap.
+
+#### One-time state bootstrap
+
+Run `00-bootstrap` locally before the first workflow. This stack intentionally remains outside CD
+because it uses local state and owns the persistent backend used by every automated stack:
+
+```powershell
+az account set --subscription "5f9e50d6-84b3-4c63-af16-737a84d7a3bb"
+terraform "-chdir=00-bootstrap" init
+terraform "-chdir=00-bootstrap" plan `
+  -var-file="../config/dev/00-bootstrap.tfvars" `
+  -out="bootstrap.tfplan"
+terraform "-chdir=00-bootstrap" apply "bootstrap.tfplan"
+
+terraform "-chdir=00-bootstrap" output
+```
+
+#### GitHub environment configuration
+
+Create a protected GitHub environment named `dev`. Add required reviewers for production-like
+changes, then configure:
+
+| Type | Name | Value |
+|---|---|---|
+| Secret | `AZURE_CLIENT_ID` | Client ID of the federated deployment identity |
+| Secret | `AZURE_TENANT_ID` | Tenant ID |
+| Secret | `AZURE_SUBSCRIPTION_ID` | Spoke subscription ID |
+| Variable | `TFSTATE_RG` | `00-bootstrap` output `resource_group_name` |
+| Variable | `TFSTATE_SA` | `00-bootstrap` output `storage_account_name` |
+| Variable | `TFSTATE_CONTAINER` | `00-bootstrap` output `state_container_name` |
+
+Run **Terraform AKS Landing Zone** from GitHub Actions and select `plan` first. Review the plan,
+then run `apply`. To remove the managed landing-zone resources, select `destroy` and enter
+`destroy-dev`; this does not destroy `00-bootstrap`.
 
 ### Option C — Azure Pipelines (`azure-pipelines.yml`)
 

@@ -87,6 +87,11 @@ Or use the helper script after editing its variables:
 bash deploy.azcli
 ```
 
+For automated plan, apply, and guarded reverse-order destroy operations, use
+`.github/workflows/deploy.yml`. The Terraform state backend is bootstrapped once and deliberately
+preserved during automated destroy. See [Deployment Guide](deployment.md#option-b--github-actions-githubworkflowsdeployyml)
+for the OIDC identity, GitHub environment, and required variables.
+
 ### Optional API Management
 
 API Management is intentionally excluded from the default deployment loop. After the environment

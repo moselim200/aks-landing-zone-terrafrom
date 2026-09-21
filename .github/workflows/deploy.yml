@@ -1,68 +1,196 @@
-name: Deploy AKS Landing Zone
+name: Terraform AKS Landing Zone
 
 on:
   workflow_dispatch:
     inputs:
-      action:
-        description: Terraform action
+      operation:
+        description: Terraform operation
+        required: true
         type: choice
-        options: [plan, apply]
+        options:
+          - plan
+          - apply
+          - destroy
         default: plan
       environment:
-        description: Environment (config/<environment>)
-        type: string
+        description: Deployment environment
+        required: true
+        type: choice
+        options:
+          - dev
         default: dev
+      destroy_confirmation:
+        description: For destroy only, enter destroy-<environment> (for example, destroy-dev)
+        required: false
+        type: string
   push:
-    branches: [main]
-    paths: ["**/*.tf", ".github/workflows/deploy.yml"]
+    branches:
+      - main
+    paths:
+      - "**/*.tf"
+      - "config/**/*.tfvars"
+      - ".github/workflows/deploy.yml"
 
 permissions:
-  id-token: write
   contents: read
+  id-token: write
+
+concurrency:
+  group: terraform-aks-${{ inputs.environment || 'dev' }}
+  cancel-in-progress: false
 
 env:
-  ARM_USE_OIDC: "true"
   ARM_USE_AZUREAD: "true"
+  ARM_USE_OIDC: "true"
   ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
   ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
   TFSTATE_RG: ${{ vars.TFSTATE_RG }}
   TFSTATE_SA: ${{ vars.TFSTATE_SA }}
   TFSTATE_CONTAINER: ${{ vars.TFSTATE_CONTAINER }}
-  ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
-  ACTION: ${{ github.event.inputs.action || 'plan' }}
+  DEPLOYMENT_ENVIRONMENT: ${{ inputs.environment || 'dev' }}
+  OPERATION: ${{ inputs.operation || 'plan' }}
 
 jobs:
-  deploy:
+  terraform:
+    name: Terraform ${{ inputs.operation || 'plan' }} (${{ inputs.environment || 'dev' }})
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || 'dev' }}
-    steps:
-      - uses: actions/checkout@v4
+    environment: ${{ inputs.environment || 'dev' }}
+    timeout-minutes: 120
 
-      - uses: azure/login@v2
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate workflow inputs and configuration
+        shell: bash
+        env:
+          DESTROY_CONFIRMATION: ${{ inputs.destroy_confirmation }}
+        run: |
+          set -euo pipefail
+
+          config_dir="config/${DEPLOYMENT_ENVIRONMENT}"
+          test -d "$config_dir" || {
+            echo "::error::Configuration directory '$config_dir' does not exist."
+            exit 1
+          }
+
+          required_values=(ARM_CLIENT_ID ARM_TENANT_ID ARM_SUBSCRIPTION_ID TFSTATE_RG TFSTATE_SA TFSTATE_CONTAINER)
+          for name in "${required_values[@]}"; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Required GitHub environment secret or variable '$name' is not configured."
+              exit 1
+            fi
+          done
+
+          if [ "$OPERATION" = "destroy" ] &&
+             [ "$DESTROY_CONFIRMATION" != "destroy-${DEPLOYMENT_ENVIRONMENT}" ]; then
+            echo "::error::Destroy confirmation must be 'destroy-${DEPLOYMENT_ENVIRONMENT}'."
+            exit 1
+          fi
+
+      - name: Sign in to Azure with OIDC
+        uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - uses: hashicorp/setup-terraform@v3
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.11.4
+          terraform_version: 1.16.2
           terraform_wrapper: false
 
-      - name: Terraform ${{ env.ACTION }} all stacks
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive
+
+      - name: Run Terraform
+        shell: bash
         run: |
           set -euo pipefail
-          for STACK in 05-entra-groups 10-network 20-firewall-rules 30-supporting-services 40-aks; do
-            echo "::group::$STACK"
-            terraform -chdir="$STACK" init \
-              -backend-config="resource_group_name=$TFSTATE_RG" \
-              -backend-config="storage_account_name=$TFSTATE_SA" \
-              -backend-config="container_name=$TFSTATE_CONTAINER"
-            if [ "$ACTION" = "apply" ]; then
-              terraform -chdir="$STACK" apply -auto-approve -var-file="$GITHUB_WORKSPACE/config/$ENVIRONMENT/$STACK.tfvars"
-            else
-              terraform -chdir="$STACK" plan -var-file="$GITHUB_WORKSPACE/config/$ENVIRONMENT/$STACK.tfvars"
+
+          backend_args=(
+            "-backend-config=resource_group_name=${TFSTATE_RG}"
+            "-backend-config=storage_account_name=${TFSTATE_SA}"
+            "-backend-config=container_name=${TFSTATE_CONTAINER}"
+          )
+
+          state_var_args=(
+            "-var=state_resource_group_name=${TFSTATE_RG}"
+            "-var=state_storage_account_name=${TFSTATE_SA}"
+            "-var=state_container_name=${TFSTATE_CONTAINER}"
+          )
+
+          deploy_stacks=(
+            05-entra-groups
+            10-network
+            20-firewall-rules
+            30-supporting-services
+            40-aks
+          )
+
+          destroy_stacks=(
+            40-aks
+            30-supporting-services
+            20-firewall-rules
+            10-network
+            05-entra-groups
+          )
+
+          if [ "$OPERATION" = "destroy" ]; then
+            stacks=("${destroy_stacks[@]}")
+          else
+            stacks=("${deploy_stacks[@]}")
+          fi
+
+          for stack in "${stacks[@]}"; do
+            echo "::group::${OPERATION} ${stack}"
+
+            terraform "-chdir=${stack}" init -reconfigure "${backend_args[@]}"
+            terraform "-chdir=${stack}" validate
+
+            var_args=(
+              "-var-file=${GITHUB_WORKSPACE}/config/${DEPLOYMENT_ENVIRONMENT}/${stack}.tfvars"
+            )
+            if [ "$stack" = "30-supporting-services" ] || [ "$stack" = "40-aks" ]; then
+              var_args+=("${state_var_args[@]}")
             fi
+
+            plan_file="${GITHUB_WORKSPACE}/${stack}-${OPERATION}.tfplan"
+
+            case "$OPERATION" in
+              plan)
+                terraform "-chdir=${stack}" plan "${var_args[@]}"
+                ;;
+              apply)
+                terraform "-chdir=${stack}" plan -out="$plan_file" "${var_args[@]}"
+                terraform "-chdir=${stack}" apply -auto-approve "$plan_file"
+                ;;
+              destroy)
+                terraform "-chdir=${stack}" plan -destroy -out="$plan_file" "${var_args[@]}"
+                terraform "-chdir=${stack}" apply -auto-approve "$plan_file"
+                ;;
+              *)
+                echo "::error::Unsupported operation '$OPERATION'."
+                exit 1
+                ;;
+            esac
+
             echo "::endgroup::"
           done
+
+      - name: Write workflow summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Terraform AKS landing zone"
+            echo
+            echo "- **Environment:** \`${DEPLOYMENT_ENVIRONMENT}\`"
+            echo "- **Operation:** \`${OPERATION}\`"
+            echo "- **State backend preserved:** \`true\`"
+            echo "- **Result:** \`${{ job.status }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

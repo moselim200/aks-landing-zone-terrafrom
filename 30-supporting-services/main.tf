@@ -21,14 +21,14 @@ resource "random_string" "suffix" {
 }
 
 locals {
-  tags          = merge(var.tags, { environment = var.environment })
-  name          = "${var.prefix}-${var.environment}"
-  pe_subnet_id  = data.terraform_remote_state.network.outputs.subnet_ids["privateendpoints"]
-  suffix        = random_string.suffix.result
-  acr_name      = "acr${var.prefix}${var.environment}${local.suffix}"
-  sa_name       = "st${var.prefix}${var.environment}${local.suffix}"
-  kv_name       = "kv-${var.prefix}-${var.environment}-${local.suffix}"
-  uami_name     = "id-${local.name}-aks"
+  tags         = merge(var.tags, { environment = var.environment })
+  name         = "${var.prefix}-${var.environment}"
+  pe_subnet_id = data.terraform_remote_state.network.outputs.subnet_ids["privateendpoints"]
+  suffix       = random_string.suffix.result
+  acr_name     = "acr${var.prefix}${var.environment}${local.suffix}"
+  sa_name      = "st${var.prefix}${var.environment}${local.suffix}"
+  kv_name      = "kv-${var.prefix}-${var.environment}-${local.suffix}"
+  uami_name    = "id-${local.name}-aks"
 }
 
 resource "azurerm_resource_group" "supporting" {

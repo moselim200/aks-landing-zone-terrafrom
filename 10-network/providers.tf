@@ -30,7 +30,7 @@ provider "azurerm" {
 # Aliased provider: hub / Azure landing zone subscription.
 # Used for the hub side of the peering and the Private DNS zone VNet links.
 provider "azurerm" {
-  alias           = "hub"
+  alias = "hub"
   features {}
   subscription_id = var.hub_subscription_id
 }

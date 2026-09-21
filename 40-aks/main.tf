@@ -82,7 +82,7 @@ module "aks" {
 
   sku = {
     name = "Base"
-    tier = "Standard"
+    tier = "Free"
   }
 
   # Bring-your-own identity for both control plane and kubelet.
