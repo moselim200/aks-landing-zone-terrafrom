@@ -1,6 +1,6 @@
 # Azure Deployment Plan
 
-> **Status:** Validated
+> **Status:** Deployed
 
 Generated: 2026-09-21T13:55:22+03:00
 
@@ -188,12 +188,12 @@ restrictions in availability zones 1, 2, and 3 and supports ephemeral OS disks.
 - [x] Apply the approved bootstrap plan
 - [x] Grant the OIDC identity `Storage Blob Data Contributor` on state storage
 - [x] Set GitHub environment variable `TFSTATE_SA`
-- [ ] Push the pipeline and configuration to the fork
-- [ ] Run the GitHub Actions `plan` operation
-- [ ] Review the remote plan
-- [ ] Run `apply` only after explicit approval
-- [ ] Verify AKS provisioning and node readiness
-- [ ] Set status to `Deployed`
+- [x] Push the pipeline and configuration to the fork
+- [x] Run the GitHub Actions `plan` operation
+- [x] Review the remote plan
+- [x] Run `apply` only after explicit approval
+- [x] Verify AKS provisioning and node readiness
+- [x] Set status to `Deployed`
 
 ---
 
@@ -217,6 +217,13 @@ restrictions in availability zones 1, 2, and 3 and supports ephemeral OS disks.
 | Static RBAC | Review of all Terraform role assignments | Pass: required roles and scopes present | 2026-09-21 |
 | Bootstrap plan | `terraform -chdir=00-bootstrap plan -var-file=../config/dev/00-bootstrap.tfvars -out=../.azure/bootstrap.tfplan` | Pass: 4 create, 0 change, 0 destroy | 2026-09-21 |
 | Initial CD plans | GitHub Actions runs `35593149602` and `35593449013` | Identified initialized but output-empty upstream state; workflow updated to require specific dependency outputs | 2026-09-21 |
+| Baseline CD plan | GitHub Actions run `35593748116` | Pass: foundation stacks planned; dependency-blocked stacks skipped explicitly | 2026-09-21 |
+| CD apply | GitHub Actions run `35593993419` | Pass: all five remote-state stacks applied in order | 2026-09-21 |
+| AKS control plane | `az aks show --resource-group rg-aks-dev-aks --name aks-aks-dev` | Pass: `Succeeded`, `Running`, private cluster | 2026-09-21 |
+| Kubernetes nodes | `az aks command invoke ... --command "kubectl get nodes -o wide"` | Pass: system and user nodes `Ready` | 2026-09-21 |
+| Private services | Azure CLI queries for ACR, Storage, and Key Vault | Pass: public network access disabled; shared storage keys disabled | 2026-09-21 |
+| Hub networking | Azure CLI peering/DNS queries and Azure REST firewall query | Pass: both peerings connected, three DNS links succeeded, firewall collection group succeeded | 2026-09-21 |
+| Live RBAC | Azure role assignment queries for managed identity and Entra groups | Pass: AcrPull, Key Vault Secrets User, Network Contributor, Managed Identity Operator, cluster user, and RBAC writer roles present | 2026-09-21 |
 
 **Validated by:** Azure validation workflow
 
