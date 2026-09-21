@@ -229,7 +229,7 @@ restrictions in availability zones 1, 2, and 3 and supports ephemeral OS disks.
 - Deployment identity: `github-aks-landing-zone-dev`
   (`6f386c64-5ad4-4454-8b57-8a8cdb6ae3cf`).
 - Federated subject:
-  `repo:moselim200/aks-landing-zone-terrafrom:environment:dev`.
+  `repo:moselim200@75947258/aks-landing-zone-terrafrom@1379523354:environment:dev`.
 - Spoke permissions: Contributor and User Access Administrator.
 - Hub permissions: Contributor only on `rg-hub-swedencentral` and
   `rg-hub-dns-swedencentral`.

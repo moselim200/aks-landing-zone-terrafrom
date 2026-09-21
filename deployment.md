@@ -86,7 +86,7 @@ Create an Entra application or user-assigned identity with a federated credentia
 the GitHub environment:
 
 ```text
-repo:moselim200/aks-landing-zone-terrafrom:environment:dev
+repo:moselim200@75947258/aks-landing-zone-terrafrom@1379523354:environment:dev
 ```
 
 Grant the identity:

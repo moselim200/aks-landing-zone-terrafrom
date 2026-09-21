@@ -32,5 +32,6 @@ provider "azurerm" {
 provider "azurerm" {
   alias = "hub"
   features {}
-  subscription_id = var.hub_subscription_id
+  subscription_id                 = var.hub_subscription_id
+  resource_provider_registrations = "none"
 }
