@@ -216,7 +216,7 @@ restrictions in availability zones 1, 2, and 3 and supports ephemeral OS disks.
 | Hub collision | Azure REST query for firewall policy rule collection groups | Pass: no name or priority-500 conflict | 2026-09-21 |
 | Static RBAC | Review of all Terraform role assignments | Pass: required roles and scopes present | 2026-09-21 |
 | Bootstrap plan | `terraform -chdir=00-bootstrap plan -var-file=../config/dev/00-bootstrap.tfvars -out=../.azure/bootstrap.tfplan` | Pass: 4 create, 0 change, 0 destroy | 2026-09-21 |
-| Initial CD plan | GitHub Actions run `35593149602` | Identified expected absent upstream state for downstream stacks; workflow updated to skip only dependency-blocked plans | 2026-09-21 |
+| Initial CD plans | GitHub Actions runs `35593149602` and `35593449013` | Identified initialized but output-empty upstream state; workflow updated to require specific dependency outputs | 2026-09-21 |
 
 **Validated by:** Azure validation workflow
 

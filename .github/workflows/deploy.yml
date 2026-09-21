@@ -146,15 +146,10 @@ jobs:
             stacks=("${deploy_stacks[@]}")
           fi
 
-          state_exists() {
-            local state_key="$1"
-            [ "$(az storage blob exists \
-              --auth-mode login \
-              --account-name "$TFSTATE_SA" \
-              --container-name "$TFSTATE_CONTAINER" \
-              --name "$state_key" \
-              --query exists \
-              --output tsv)" = "true" ]
+          state_has_output() {
+            local dependency_stack="$1"
+            local output_name="$2"
+            terraform "-chdir=${dependency_stack}" output -json "$output_name" >/dev/null 2>&1
           }
 
           for stack in "${stacks[@]}"; do
@@ -164,29 +159,31 @@ jobs:
             terraform "-chdir=${stack}" validate
 
             if [ "$OPERATION" = "plan" ]; then
-              required_states=()
+              required_outputs=()
               case "$stack" in
                 30-supporting-services)
-                  required_states=(10-network.tfstate)
+                  required_outputs=("10-network:subnet_ids")
                   ;;
                 40-aks)
-                  required_states=(
-                    05-entra-groups.tfstate
-                    10-network.tfstate
-                    30-supporting-services.tfstate
+                  required_outputs=(
+                    "05-entra-groups:admins_group_object_id"
+                    "10-network:subnet_ids"
+                    "30-supporting-services:uami_id"
                   )
                   ;;
               esac
 
-              missing_states=()
-              for state_key in "${required_states[@]}"; do
-                if ! state_exists "$state_key"; then
-                  missing_states+=("$state_key")
+              missing_outputs=()
+              for requirement in "${required_outputs[@]}"; do
+                dependency_stack="${requirement%%:*}"
+                output_name="${requirement#*:}"
+                if ! state_has_output "$dependency_stack" "$output_name"; then
+                  missing_outputs+=("$requirement")
                 fi
               done
 
-              if [ "${#missing_states[@]}" -gt 0 ]; then
-                echo "::warning::Skipping ${stack} plan until prerequisite state exists: ${missing_states[*]}"
+              if [ "${#missing_outputs[@]}" -gt 0 ]; then
+                echo "::warning::Skipping ${stack} plan until prerequisite outputs exist: ${missing_outputs[*]}"
                 echo "::endgroup::"
                 continue
               fi
