@@ -146,11 +146,51 @@ jobs:
             stacks=("${deploy_stacks[@]}")
           fi
 
+          state_exists() {
+            local state_key="$1"
+            [ "$(az storage blob exists \
+              --auth-mode login \
+              --account-name "$TFSTATE_SA" \
+              --container-name "$TFSTATE_CONTAINER" \
+              --name "$state_key" \
+              --query exists \
+              --output tsv)" = "true" ]
+          }
+
           for stack in "${stacks[@]}"; do
             echo "::group::${OPERATION} ${stack}"
 
             terraform "-chdir=${stack}" init -reconfigure "${backend_args[@]}"
             terraform "-chdir=${stack}" validate
+
+            if [ "$OPERATION" = "plan" ]; then
+              required_states=()
+              case "$stack" in
+                30-supporting-services)
+                  required_states=(10-network.tfstate)
+                  ;;
+                40-aks)
+                  required_states=(
+                    05-entra-groups.tfstate
+                    10-network.tfstate
+                    30-supporting-services.tfstate
+                  )
+                  ;;
+              esac
+
+              missing_states=()
+              for state_key in "${required_states[@]}"; do
+                if ! state_exists "$state_key"; then
+                  missing_states+=("$state_key")
+                fi
+              done
+
+              if [ "${#missing_states[@]}" -gt 0 ]; then
+                echo "::warning::Skipping ${stack} plan until prerequisite state exists: ${missing_states[*]}"
+                echo "::endgroup::"
+                continue
+              fi
+            fi
 
             var_args=(
               "-var-file=${GITHUB_WORKSPACE}/config/${DEPLOYMENT_ENVIRONMENT}/${stack}.tfvars"

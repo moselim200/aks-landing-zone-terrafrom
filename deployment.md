@@ -75,6 +75,8 @@ The workflow uses OIDC and Azure AD backend authentication, so it does not store
 secret. It supports:
 
 - `plan` on every relevant push to `main` or by manual dispatch.
+- On the first deployment, `plan` explicitly skips downstream stacks whose prerequisite remote
+  state does not exist yet. After the first ordered `apply`, later plans cover every stack.
 - `apply` by manual dispatch, using a saved plan for each stack.
 - `destroy` by manual dispatch in reverse dependency order. The operator must enter
   `destroy-<environment>` and pass any GitHub environment approval. The state backend is preserved.
